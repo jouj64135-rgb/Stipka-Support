@@ -249,7 +249,7 @@ def ticket_card_text(ticket_id: int) -> str:
 # Цвета: success — зелёная, danger — красная, primary — синяя.
 # Все кнопки «назад» красные; без цвета только номер страницы в списках.
 def get_user_main_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[[btn("🗂 Мои обращения", "user_my_tickets", "primary")]])
+    return InlineKeyboardMarkup(inline_keyboard=[[btn("🗂 Мои обращения", "user_my_tickets", "success")]])
 
 
 def get_back_to_main_kb():
@@ -269,7 +269,7 @@ def get_user_tickets_kb(user_id: int):
     buttons = []
     for t_id, data in tickets.items():
         if data["user_id"] == user_id:
-            buttons.append([btn(f"{status_symbol(data)} Обращение #{t_id}", f"user_view_ticket_{t_id}", "primary")])
+            buttons.append([btn(f"{status_symbol(data)} Обращение #{t_id}", f"user_view_ticket_{t_id}", "success")])
     buttons.append([btn("« Назад", "user_main_menu", "danger")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -284,9 +284,9 @@ USER_TICKETS_TITLE = (
 def get_admin_main_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [btn("📩 Активные тикеты", "admin_tickets_open", "primary")],
-            [btn("📁 Архив (Закрытые)", "admin_tickets_closed", "primary")],
-            [btn("👥 Управление админами", "admin_manage_admins", "primary")],
+            [btn("📩 Активные тикеты", "admin_tickets_open", "success")],
+            [btn("📁 Архив (Закрытые)", "admin_tickets_closed", "success")],
+            [btn("👥 Управление админами", "admin_manage_admins", "success")],
         ]
     )
 
@@ -294,7 +294,7 @@ def get_admin_main_kb():
 def get_admins_manage_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [btn("➕ Добавить админа", "admin_add_new", "primary")],
+            [btn("➕ Добавить админа", "admin_add_new", "success")],
             [btn("➖ Удалить админа", "admin_remove_exist", "danger")],
             [btn("« Назад в меню", "admin_main_menu", "danger")],
         ]
@@ -342,7 +342,7 @@ def get_tickets_page(kind: str, page: int, user_id: int):
         rows.append([btn(
             f"{status_symbol(d)} Тикет #{t_id} · {fmt_date(d.get('created_at'))} · {len(d['messages'])} сообщ.",
             f"view_ticket_{t_id}",
-            "primary",
+            "success",
         )])
 
     if total:
