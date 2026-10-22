@@ -246,12 +246,14 @@ def ticket_card_text(ticket_id: int) -> str:
 
 
 # --- КЛАВИАТУРЫ ПОЛЬЗОВАТЕЛЯ ---
+# Цвета: success — зелёная, danger — красная, primary — синяя.
+# Все кнопки «назад» красные; без цвета только номер страницы в списках.
 def get_user_main_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[[btn("🗂 Мои обращения", "user_my_tickets")]])
+    return InlineKeyboardMarkup(inline_keyboard=[[btn("🗂 Мои обращения", "user_my_tickets", "primary")]])
 
 
 def get_back_to_main_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[[btn("« Назад", "user_main_menu")]])
+    return InlineKeyboardMarkup(inline_keyboard=[[btn("« Назад", "user_main_menu", "danger")]])
 
 
 def get_payment_question_kb(ticket_id: int):
@@ -267,8 +269,8 @@ def get_user_tickets_kb(user_id: int):
     buttons = []
     for t_id, data in tickets.items():
         if data["user_id"] == user_id:
-            buttons.append([btn(f"{status_symbol(data)} Обращение #{t_id}", f"user_view_ticket_{t_id}")])
-    buttons.append([btn("« Назад", "user_main_menu")])
+            buttons.append([btn(f"{status_symbol(data)} Обращение #{t_id}", f"user_view_ticket_{t_id}", "primary")])
+    buttons.append([btn("« Назад", "user_main_menu", "danger")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -282,9 +284,9 @@ USER_TICKETS_TITLE = (
 def get_admin_main_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [btn("📩 Активные тикеты", "admin_tickets_open")],
-            [btn("📁 Архив (Закрытые)", "admin_tickets_closed")],
-            [btn("👥 Управление админами", "admin_manage_admins")],
+            [btn("📩 Активные тикеты", "admin_tickets_open", "primary")],
+            [btn("📁 Архив (Закрытые)", "admin_tickets_closed", "primary")],
+            [btn("👥 Управление админами", "admin_manage_admins", "primary")],
         ]
     )
 
@@ -292,65 +294,79 @@ def get_admin_main_kb():
 def get_admins_manage_kb():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [btn("➕ Добавить админа", "admin_add_new")],
-            [btn("➖ Удалить админа", "admin_remove_exist")],
-            [btn("« Назад в меню", "admin_main_menu")],
+            [btn("➕ Добавить админа", "admin_add_new", "primary")],
+            [btn("➖ Удалить админа", "admin_remove_exist", "danger")],
+            [btn("« Назад в меню", "admin_main_menu", "danger")],
         ]
     )
 
 
 def get_admin_ticket_manage_kb(ticket_id: int):
     is_open = tickets.get(ticket_id, {}).get("status") == "open"
-    buttons = [[btn("📜 Посмотреть историю", f"history_ticket_{ticket_id}")]]
+    buttons = [[btn("📜 Посмотреть историю", f"history_ticket_{ticket_id}", "success")]]
     if is_open:
         buttons.append([
-            btn("Ответить", f"reply_ticket_{ticket_id}"),
-            btn("Закрыть", f"close_ticket_{ticket_id}"),
+            btn("Ответить", f"reply_ticket_{ticket_id}", "success"),
+            btn("Закрыть", f"close_ticket_{ticket_id}", "danger"),
         ])
     back = "admin_tickets_open" if is_open else "admin_tickets_closed"
-    buttons.append([btn("« Назад к тикетам", back)])
+    buttons.append([btn("« Назад к тикетам", back, "danger")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_admin_chat_mode_kb(ticket_id: int):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [btn("📜 История", f"history_ticket_{ticket_id}"), btn("🔒 Закрыть", f"close_ticket_{ticket_id}")],
-            [btn("« Назад в админ панель", "admin_exit_chat")],
+            [
+                btn("📜 История", f"history_ticket_{ticket_id}", "success"),
+                btn("🔒 Закрыть", f"close_ticket_{ticket_id}", "danger"),
+            ],
+            [btn("« Назад в админ панель", "admin_exit_chat", "danger")],
         ]
     )
 
 
-def get_archive_page(page: int, user_id: int):
-    """Страница архива (только закрытые тикеты). Возвращает (текст, клавиатура)."""
-    closed_ids = sorted([t for t, d in tickets.items() if d["status"] == "closed"], reverse=True)
-    total = len(closed_ids)
+def get_tickets_page(kind: str, page: int, user_id: int):
+    """Страница списка тикетов. kind: 'open' — активные, 'closed' — архив.
+    Возвращает (текст, клавиатура)."""
+    ids = sorted([t for t, d in tickets.items() if d["status"] == kind], reverse=True)
+    total = len(ids)
     pages = max(1, -(-total // PAGE_SIZE))
     page = min(max(page, 1), pages)
-    chunk = closed_ids[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    chunk = ids[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
+    prefix = "open" if kind == "open" else "arch"
 
-    rows = [[btn("🔍 Поиск", "arch_search", "success")]]
+    rows = [[btn("🔍 Поиск", f"{prefix}_search", "success")]]
     for t_id in chunk:
         d = tickets[t_id]
         rows.append([btn(
-            f"🔴 Тикет #{t_id} · {fmt_date(d.get('created_at'))} · {len(d['messages'])} сообщ.",
+            f"{status_symbol(d)} Тикет #{t_id} · {fmt_date(d.get('created_at'))} · {len(d['messages'])} сообщ.",
             f"view_ticket_{t_id}",
+            "primary",
         )])
 
     if total:
         nav = []
         if page > 1:
-            nav.append(btn("⬅️", f"arch_p_{page - 1}", "success"))
-        nav.append(btn(f"{page}/{pages}", "noop"))  # прозрачная, никуда не ведёт
+            nav.append(btn("⬅️", f"{prefix}_p_{page - 1}", "success"))
+        nav.append(btn(f"{page}/{pages}", "noop"))  # без цвета, никуда не ведёт
         if page < pages:
-            nav.append(btn("➡️", f"arch_p_{page + 1}", "success"))
+            nav.append(btn("➡️", f"{prefix}_p_{page + 1}", "success"))
         rows.append(nav)
-        if user_id == SUPER_ADMIN_ID:  # очистка только у владельца
+        if kind == "closed" and user_id == SUPER_ADMIN_ID:  # очистка только у владельца
             rows.append([btn("🗑 Удалить архив", "arch_clear", "danger")])
 
-    rows.append([btn("« Назад в меню", "admin_main_menu")])
+    rows.append([btn("« Назад в меню", "admin_main_menu", "danger")])
 
-    text = f"📁 <b>Архив тикетов</b>\n\n🔴 — закрыт\nВсего в архиве: {total}"
+    if kind == "open":
+        text = (
+            "📩 <b>Активные тикеты</b>\n\n"
+            "🟢 — ждёт ответа админа\n"
+            "🟠 — ответ отправлен, ждём клиента\n"
+            f"Всего активных: {total}"
+        )
+    else:
+        text = f"📁 <b>Архив тикетов</b>\n\n🔴 — закрыт\nВсего в архиве: {total}"
     if not total:
         text += "\n\nСписок пуст."
     return text, InlineKeyboardMarkup(inline_keyboard=rows)
@@ -395,14 +411,6 @@ async def cmd_close(message: types.Message):
     ticket_id = open_ids[-1]
     close_ticket_core(ticket_id)
     await message.answer(f"🔒 Обращение #{ticket_id} закрыто.")
-
-    for admin_id in ADMINS:
-        if admin_id == user_id:
-            continue
-        try:
-            await bot.send_message(admin_id, f"🔒 Пользователь закрыл Тикет #{ticket_id}. Он перенесён в архив.")
-        except Exception as e:
-            logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
 
 @dp.callback_query(F.data == "noop")
@@ -458,7 +466,7 @@ async def user_view_ticket(callback: types.CallbackQuery):
     )
 
     await safe_edit(callback, msg_history, InlineKeyboardMarkup(
-        inline_keyboard=[[btn("« К списку обращений", "user_my_tickets")]]
+        inline_keyboard=[[btn("« К списку обращений", "user_my_tickets", "danger")]]
     ))
     await callback.answer()
 
@@ -581,64 +589,44 @@ async def process_remove_admin(message: types.Message, state: FSMContext):
     await state.clear()
 
 
-# Активные тикеты
-@dp.callback_query(F.data == "admin_tickets_open")
-async def admin_list_open(callback: types.CallbackQuery):
-    if not is_admin(callback.from_user.id):
-        return
-
-    open_tickets = {t: d for t, d in tickets.items() if d["status"] == "open"}
-    title = (
-        "📩 <b>Активные тикеты:</b>\n\n"
-        "🟢 — ждёт ответа админа\n"
-        "🟠 — ответ отправлен, ждём клиента"
-    )
-
-    buttons = []
-    for t_id, t_data in open_tickets.items():
-        buttons.append([btn(
-            f"{status_symbol(t_data)} Тикет #{t_id} · {fmt_date(t_data.get('created_at'))} · {len(t_data['messages'])} сообщ.",
-            f"view_ticket_{t_id}",
-        )])
-    buttons.append([btn("« Назад в меню", "admin_main_menu")])
-
-    if not open_tickets:
-        title += "\n\nСписок пуст."
-
-    await safe_edit(callback, title, InlineKeyboardMarkup(inline_keyboard=buttons))
-    await callback.answer()
-
-
-# Архив (только закрытые): страницы, поиск, очистка
-@dp.callback_query(F.data.startswith("arch_p_") | (F.data == "admin_tickets_closed"))
-async def admin_archive(callback: types.CallbackQuery, state: FSMContext):
+# Списки тикетов (активные и архив): страницы и поиск
+@dp.callback_query(
+    F.data.startswith("open_p_") | (F.data == "admin_tickets_open")
+    | F.data.startswith("arch_p_") | (F.data == "admin_tickets_closed")
+)
+async def admin_tickets_list(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         return
 
     if await state.get_state() == AdminStates.waiting_for_search.state:
         await state.clear()
 
-    page = int(callback.data.split("_")[2]) if callback.data.startswith("arch_p_") else 1
-    text, kb = get_archive_page(page, callback.from_user.id)
+    data = callback.data
+    kind = "open" if (data.startswith("open_p_") or data == "admin_tickets_open") else "closed"
+    page = int(data.split("_")[2]) if data.startswith(("open_p_", "arch_p_")) else 1
+    text, kb = get_tickets_page(kind, page, callback.from_user.id)
     await safe_edit(callback, text, kb)
     await callback.answer()
 
 
-@dp.callback_query(F.data == "arch_search")
-async def arch_search_start(callback: types.CallbackQuery, state: FSMContext):
+@dp.callback_query(F.data.in_({"open_search", "arch_search"}))
+async def tickets_search_start(callback: types.CallbackQuery, state: FSMContext):
     if not is_admin(callback.from_user.id):
         return
 
+    kind = "open" if callback.data == "open_search" else "closed"
+    back = "admin_tickets_open" if kind == "open" else "admin_tickets_closed"
     await state.set_state(AdminStates.waiting_for_search)
+    await state.update_data(search_kind=kind)
     await callback.message.answer(
         "🔍 Введите номер тикета:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn("« Отмена", "admin_tickets_closed")]]),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn("« Отмена", back, "danger")]]),
     )
     await callback.answer()
 
 
 @dp.message(AdminStates.waiting_for_search)
-async def arch_search_process(message: types.Message, state: FSMContext):
+async def tickets_search_process(message: types.Message, state: FSMContext):
     if not is_admin(message.from_user.id):
         return
 
@@ -647,13 +635,18 @@ async def arch_search_process(message: types.Message, state: FSMContext):
         await message.answer("❌ Введите номер тикета цифрами:")
         return
 
+    kind = (await state.get_data()).get("search_kind", "closed")
     await state.clear()
     t_id = int(raw)
 
     if t_id not in tickets:
+        back, label = (
+            ("admin_tickets_open", "« К активным тикетам") if kind == "open"
+            else ("admin_tickets_closed", "« К архиву")
+        )
         await message.answer(
             f"❌ Тикета #{t_id} нет.",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn("« К архиву", "admin_tickets_closed")]]),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn(label, back, "danger")]]),
         )
         return
 
@@ -676,7 +669,7 @@ async def arch_clear(callback: types.CallbackQuery):
         f"🗑 Удалить все закрытые обращения ({count})?\nЭто действие нельзя отменить.",
         InlineKeyboardMarkup(inline_keyboard=[
             [btn("🗑 Да, удалить", "arch_clear_yes", "danger")],
-            [btn("« Отмена", "admin_tickets_closed")],
+            [btn("« Отмена", "admin_tickets_closed", "danger")],
         ]),
     )
     await callback.answer()
@@ -695,7 +688,7 @@ async def arch_clear_yes(callback: types.CallbackQuery):
     await safe_edit(
         callback,
         f"✅ Архив очищен. Удалено обращений: {len(closed_ids)}",
-        InlineKeyboardMarkup(inline_keyboard=[[btn("« К архиву", "admin_tickets_closed")]]),
+        InlineKeyboardMarkup(inline_keyboard=[[btn("« К архиву", "admin_tickets_closed", "danger")]]),
     )
     await callback.answer()
 
@@ -898,7 +891,7 @@ async def close_ticket(callback: types.CallbackQuery, state: FSMContext):
         await safe_edit(
             callback,
             f"🔴 <b>Тикет #{ticket_id} перенесен в архив.</b>",
-            InlineKeyboardMarkup(inline_keyboard=[[btn("« Назад в админ панель", "admin_main_menu")]]),
+            InlineKeyboardMarkup(inline_keyboard=[[btn("« Назад в админ панель", "admin_main_menu", "danger")]]),
         )
         await callback.answer()
     else:
@@ -952,24 +945,14 @@ async def handle_user_message(message: types.Message, state: FSMContext):
     ticket = tickets[ticket_id]
     ticket["messages"].append(make_item("Пользователь", message))
 
-    user_info = f"@{esc(message.from_user.username)}" if message.from_user.username else f"ID: {user_id}"
-    header = (
-        f"🆕 <b>Новый тикет #{ticket_id}</b> от {user_info}:" if is_new_ticket
-        else f"📩 <b>Новое сообщение в Тикете #{ticket_id}</b> от {user_info}:"
-    )
-
-    for admin_id in ADMINS:
-        if admin_id == user_id:
-            continue
-        try:
-            if admin_chat_mode.get(admin_id) == ticket_id:
-                # Админ уже в режиме чата с этим тикетом — показываем сообщение как в живом диалоге.
+    # Уведомления админам о новых сообщениях НЕ отправляются: тикеты и переписка видны в админ-панели.
+    # Исключение — админ, который прямо сейчас в режиме чата с этим тикетом (живой диалог).
+    for admin_id, chat_ticket in list(admin_chat_mode.items()):
+        if chat_ticket == ticket_id and admin_id != user_id:
+            try:
                 await message.copy_to(chat_id=admin_id)
-            else:
-                await bot.send_message(admin_id, header, parse_mode="HTML")
-                await message.copy_to(chat_id=admin_id, reply_markup=get_admin_ticket_manage_kb(ticket_id))
-        except Exception as e:
-            logging.error(f"Ошибка отправки админу {admin_id}: {e}")
+            except Exception as e:
+                logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
     if is_new_ticket:
         await message.answer("Вы по поводу оплаты?", reply_markup=get_payment_question_kb(ticket_id))
