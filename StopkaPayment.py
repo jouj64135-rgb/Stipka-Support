@@ -904,14 +904,15 @@ async def close_ticket(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("pay_q_"))
 async def payment_question(callback: types.CallbackQuery):
     _, _, answer, raw_id = callback.data.split("_")
-    ticket = tickets.get(int(raw_id))
+    ticket_id = int(raw_id)
+    ticket = tickets.get(ticket_id)
 
     if not ticket or ticket["user_id"] != callback.from_user.id or ticket.get("topic"):
         await callback.answer()
         return
 
     ticket["topic"] = "payment" if answer == "yes" else "other"
-    await safe_edit(callback, "Администрация скоро вам ответит.")
+    await safe_edit(callback, f"Администрация скоро вам ответит.\n\nВаше обращение #{ticket_id}")
     await callback.answer()
 
 
@@ -955,7 +956,10 @@ async def handle_user_message(message: types.Message, state: FSMContext):
                 logging.error(f"Ошибка отправки админу {admin_id}: {e}")
 
     if is_new_ticket:
-        await message.answer("Вы по поводу оплаты?", reply_markup=get_payment_question_kb(ticket_id))
+        await message.answer(
+            f"Вы по поводу оплаты?\n\nВаше обращение #{ticket_id}",
+            reply_markup=get_payment_question_kb(ticket_id),
+        )
 
 
 # --- ЗАПУСК ---
